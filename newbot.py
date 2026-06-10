@@ -42,11 +42,8 @@ class HighriseEliteBot(BaseBot):
         self.muted_users = {}       
         self.saved_position = None  
 
-        self.bot_emotes = [
-            "emote-fashion", "emote-shy", "emote-dance-tiktok",
-            "emote-charging", "emote-shoppingcart", "emote-superpose",
-            "emote-russianwave", "emote-blackpink", "emote-customtrack"
-        ]
+        # تحديد رقصة الـ Floss الأسطورية للبوت بشكل أساسي
+        self.floss_emote = "emote-floss"
 
         self.timezone_mapping = {
             "السعودية": "Asia/Riyadh", "saudi": "Asia/Riyadh",
@@ -71,28 +68,26 @@ class HighriseEliteBot(BaseBot):
 
     async def on_start(self, session_metadata: SessionMetadata) -> None:
         print(f"⚡ تم تشغيل البوت بنجاح! المالك: {self.OWNER_USERNAME}")
-        # تفعيل رقصة البوت التلقائية فور دخوله الغرفة
-        asyncio.create_task(self.keep_bot_dancing())
+        # تشغيل دالة الرقص اللانهائي فور دخول الغرفة
+        asyncio.create_task(self.keep_bot_dancing_floss())
         asyncio.create_task(self.send_trade_announcements())
         asyncio.create_task(self.recommend_random_shop())
 
-    # دالة ذكية لإبقاء البوت راقصاً ومميزاً طوال تواجده بالروم
-    async def keep_bot_dancing(self):
+    # دالة الرقص اللانهائي (Floss) بدون توقف
+    async def keep_bot_dancing_floss(self):
         while True:
             try:
-                await asyncio.sleep(5)
-                # البوت يرسل لنفسه رقصة عشوائية من قائمته كل فترة لكي لا يتوقف
-                random_emote = random.choice(self.bot_emotes)
-                await self.highrise.send_emote(random_emote)
-                await asyncio.sleep(10) # ينتظر انتهاء الرقصة قبل تكرارها
+                # إرسال رقصة الفلوس لنفسه
+                await self.highrise.send_emote(self.floss_emote)
+                # الانتظار لمدة تضمن بقاء الرقصة تعمل ثم تكرارها فوراً
+                await asyncio.sleep(9.0) 
             except Exception as e:
-                print(f"خطأ في رقص البوت وتم تجاوزه: {e}")
-                await asyncio.sleep(5)
+                print(f"خطأ مؤقت في رقصة البوت وتم تجاوزه: {e}")
+                await asyncio.sleep(2)
 
     async def send_trade_announcements(self):
         while True:
             try:
-                # التعديل الجديد: البوت ينتظر 50 ثانية كاملة بين الرسائل لمنع السبام والفصل
                 await asyncio.sleep(50) 
                 if not self.is_frozen:
                     await self.highrise.chat("🏪 الغرفة غرفتكم والمكان مكانكم! هنا يقدم كل اللاعبين متاجرهم وعروضهم مجاناً وبدون أي رسوم! اعرضوا سلعكم وفالكم التوفيق يا ملوك البزنس والبيع 🛍️✨")
@@ -164,7 +159,7 @@ class HighriseEliteBot(BaseBot):
 
         try:
             if "بوت" in command:
-                await self.highrise.chat("لبيه! كيف يمكنني مساعدتك اليوم؟ 🔥")
+                await self.highrise.chat("لبيه! كيف يمكنني مساعدتك اليوم? 🔥")
                 return
 
             if msg.startswith("وقت ") or msg.startswith("!time "):
@@ -259,7 +254,7 @@ class HighriseEliteBot(BaseBot):
             if u.username.lower() == username.lower(): return u
         return None
 
-# --- [ إعدادات التشغيل والربط الصحيحة غرفتك ] ---
+# --- [ إعدادات التشغيل والربط ] ---
 from highrise.__main__ import main, BotDefinition
 
 ROOM_ID = "6a2926cfc5102b78599c32b8"
