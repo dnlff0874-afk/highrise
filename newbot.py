@@ -42,7 +42,7 @@ class HighriseEliteBot(BaseBot):
         self.muted_users = {}       
         self.saved_position = None  
 
-        # تحديد رقصة الـ Floss الأسطورية للبوت بشكل أساسي
+        # ضبط الرقصة لـ Floss بشكل دائم
         self.floss_emote = "emote-floss"
 
         self.timezone_mapping = {
@@ -68,18 +68,18 @@ class HighriseEliteBot(BaseBot):
 
     async def on_start(self, session_metadata: SessionMetadata) -> None:
         print(f"⚡ تم تشغيل البوت بنجاح! المالك: {self.OWNER_USERNAME}")
-        # تشغيل دالة الرقص اللانهائي فور دخول الغرفة
+        # تشغيل دالة رقص الـ Floss بدون توقف
         asyncio.create_task(self.keep_bot_dancing_floss())
         asyncio.create_task(self.send_trade_announcements())
         asyncio.create_task(self.recommend_random_shop())
 
-    # دالة الرقص اللانهائي (Floss) بدون توقف
+    # دالة رقص الـ Floss التلقائي اللانهائي
     async def keep_bot_dancing_floss(self):
         while True:
             try:
                 # إرسال رقصة الفلوس لنفسه
                 await self.highrise.send_emote(self.floss_emote)
-                # الانتظار لمدة تضمن بقاء الرقصة تعمل ثم تكرارها فوراً
+                # الانتظار لمدة 9 ثوانٍ ثم تكرارها فوراً ليبقى يرقص دون انقطاع
                 await asyncio.sleep(9.0) 
             except Exception as e:
                 print(f"خطأ مؤقت في رقصة البوت وتم تجاوزه: {e}")
@@ -159,7 +159,7 @@ class HighriseEliteBot(BaseBot):
 
         try:
             if "بوت" in command:
-                await self.highrise.chat("لبيه! كيف يمكنني مساعدتك اليوم? 🔥")
+                await self.highrise.chat("لبيه! كيف يمكنني مساعدتك اليوم؟ 🔥")
                 return
 
             if msg.startswith("وقت ") or msg.startswith("!time "):
