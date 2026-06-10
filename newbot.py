@@ -4,7 +4,7 @@ import random
 import os
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, HTTPServer
-from highrise import BaseBot, Position, RoomPosition
+from highrise import BaseBot, Position
 from highrise.models import User, SessionMetadata
 import pytz
 
