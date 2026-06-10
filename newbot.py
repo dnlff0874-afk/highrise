@@ -16,7 +16,6 @@ def run_dummy_server():
         def log_message(self, format, *args):
             pass
     
-    # قراءة البورت الذي يطلبه Render تلقائياً، وإذا لم يجده يختار 10000 كاحتياطي
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SafeHandler)
     print(f"🌍 Keep-Alive server is running on port {port}")
@@ -77,19 +76,27 @@ class HighriseEliteBot(BaseBot):
 
     async def send_trade_announcements(self):
         while True:
-            await asyncio.sleep(10)
-            if not self.is_frozen:
-                await self.highrise.chat("🏪 الغرفة غرفتكم والمكان مكانكم! هنا يقدم كل اللاعبين متاجرهم وعروضهم مجاناً وبدون أي رسوم! اعرضوا سلعكم وفالكم التوفيق يا ملوك البزنس والبيع 🛍️✨")
-                await asyncio.sleep(2.0)
-                await self.highrise.chat("⚠️ ولكن احذر يا صديقي ويا صديقتي من النصب والاحتيال! لا تندفعوا وتأكدوا من المقايضة 100% قبل الضغط على زر القبول. التجارة شطارة والحرص واجب دائماً! 🤝❌")
+            try:
+                await asyncio.sleep(15) # رفعنا الوقت قليلاً لتفادي الضغط وتجنب الفصل
+                if not self.is_frozen:
+                    await self.highrise.chat("🏪 الغرفة غرفتكم والمكان مكانكم! هنا يقدم كل اللاعبين متاجرهم وعروضهم مجاناً وبدون أي رسوم! اعرضوا سلعكم وفالكم التوفيق يا ملوك البزنس والبيع 🛍️✨")
+                    await asyncio.sleep(4.0)
+                    await self.highrise.chat("⚠️ ولكن احذر يا صديقي ويا صديقتي من النصب والاحتيال! لا تندفعوا وتأكدوا من المقايضة 100% قبل الضغط على زر القبول. التجارة شطارة والحرص واجب دائماً! 🤝❌")
+            except Exception as e:
+                print(f"حدث خطأ مؤقت في شات الإعلانات وتم تجاوزه: {e}")
+                await asyncio.sleep(5)
 
     async def recommend_random_shop(self):
         while True:
-            await asyncio.sleep(120)
-            if self.room_users and not self.is_frozen:
-                random_user = random.choice(list(self.room_users.values()))
-                if random_user.username.lower() != self.OWNER_USERNAME.lower():
-                    await self.highrise.chat(f"✨ عيونكم هناااا يا تجار! 👀 تعالوا شوفوا متجر هذا الشخص المحظوظ والعشوائي لليوم: @{random_user.username} ✨ ادخلوا بروفايله وشوفوا عروضه الأسطورية! 🔥🛒")
+            try:
+                await asyncio.sleep(120)
+                if self.room_users and not self.is_frozen:
+                    random_user = random.choice(list(self.room_users.values()))
+                    if random_user.username.lower() != self.OWNER_USERNAME.lower():
+                        await self.highrise.chat(f"✨ عيونكم هناااا يا تجار! 👀 تعالوا شوفوا متجر هذا الشخص المحظوظ والعشوائي لليوم: @{random_user.username} ✨ ادخلوا بروفايله وشوفوا عروضه الأسطورية! 🔥🛒")
+            except Exception as e:
+                print(f"حدث خطأ مؤقت في ترشيح المتجر وتم تجاوزه: {e}")
+                await asyncio.sleep(5)
 
     async def on_user_join(self, user: User, position: Position) -> None:
         try:
