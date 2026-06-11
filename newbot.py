@@ -2,29 +2,31 @@ import threading
 import asyncio
 import random
 import os
-from datetime import datetime
+import json
+import time
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from highrise import BaseBot, Position
 from highrise.models import User, SessionMetadata
-import pytz
 
 # ========================================================
-# 1. سيرفر الويب المطور لقراءة البورت تلقائياً ومنع الفصل
+# 1. سيرفر الويب المتوافق تماماً مع بورت Render
 # ========================================================
 def run_dummy_server():
     class SafeHandler(SimpleHTTPRequestHandler):
-        def log_message(self, format, *args):
-            pass
+        def log_message(self, format, *args): pass
     
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SafeHandler)
-    print(f"🌍 Keep-Alive server is running on port {port}")
-    server.serve_forever()
+    try:
+        server = HTTPServer(('0.0.0.0', port), SafeHandler)
+        print(f"🌍 Dummy Server Successfully Bound to Port {port}")
+        server.serve_forever()
+    except Exception as e:
+        print(f"⚠️ Web Server Error: {e}")
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
 # ========================================================
-# 2. فئة البوت وإعدادات الأنظمة الأساسية الشاملة
+# 2. فئة البوت الاحترافية بنظام الحماية ومنع تداخل الاتصال
 # ========================================================
 class HighriseEliteBot(BaseBot):
     
@@ -32,108 +34,152 @@ class HighriseEliteBot(BaseBot):
         super().__init__(*args, **kwargs)
         self.OWNER_USERNAME = "2e8"
         self.TARGET_USER = "A__4o"
-        self.banned_words = ["سب1", "سب2"] 
-        self.moderators = []
+        self.moderators = ["2e8"] 
         
-        self.total_joins = 0
-        self.commands_executed = 0
-        self.is_frozen = False      
+        # قائمة الكلمات المحظورة
+        self.banned_words = ["امك", "عاهره", "ابن كلبه", "ابن عاهره", "عاهرة"] 
+        
         self.room_users = {}        
-        self.muted_users = {}       
-        self.saved_position = None  
+        self.bot_user_id = None  
+        self.is_ready_to_dance = False
+        self.is_frozen = False      
 
-        # ضبط الرقصة لـ Floss بشكل دائم
-        self.floss_emote = "emote-floss"
+        # رقصة تيك توك التفاعلية الدائمة للبوت
+        self.bot_constant_emote = "emote-dance-tiktok"
 
-        self.timezone_mapping = {
-            "السعودية": "Asia/Riyadh", "saudi": "Asia/Riyadh",
-            "مصر": "Africa/Cairo", "egypt": "Africa/Cairo",
-            "الإمارات": "Asia/Dubai", "uae": "Asia/Dubai",
-            "الكويت": "Asia/Kuwait", "kuwait": "Asia/Kuwait",
-            "العراق": "Asia/Baghdad", "iraq": "Asia/Baghdad",
-            "المغرب": "Africa/Casablanca", "morocco": "Africa/Casablanca",
-            "الجزائر": "Africa/Algiers", "algeria": "Africa/Algiers",
-            "تونس": "Africa/Tunis", "tunisia": "Africa/Tunis",
-            "الأردن": "Asia/Amman", "jordan": "Asia/Amman",
-            "فلسطين": "Asia/Gaza", "palestine": "Asia/Gaza",
-            "قطر": "Asia/Qatar", "qatar": "Asia/Qatar",
-            "البحرين": "Asia/Bahrain", "bahrain": "Asia/Bahrain",
-            "عمان": "Asia/Muscat", "oman": "Asia/Muscat",
-            "لبنان": "Asia/Beirut", "lebanon": "Asia/Beirut",
-            "سوريا": "Asia/Damascus", "syria": "Asia/Damascus",
-            "اليمن": "Asia/Aden", "yemen": "Asia/Aden",
-            "ليبيا": "Africa/Tripoli", "libya": "Africa/Tripoli",
-            "السودان": "Africa/Khartoum", "sudan": "Africa/Khartoum"
+        # قاعدة البيانات المستمرة
+        self.db_file = "database.json"
+        self.db = self.load_database()
+
+        # منصات الانتقال السريع
+        self.locations = {
+            "1": Position(12.0, 8.5, 12.0, "facingRight"),  
+            "2": Position(5.0, 12.0, 5.0, "facingLeft"),    
+            "3": Position(3.0, 0.0, 3.0, "facingRight")     
         }
 
-    async def on_start(self, session_metadata: SessionMetadata) -> None:
-        print(f"⚡ تم تشغيل البوت بنجاح! المالك: {self.OWNER_USERNAME}")
-        # تشغيل دالة رقص الـ Floss بدون توقف
-        asyncio.create_task(self.keep_bot_dancing_floss())
-        asyncio.create_task(self.send_trade_announcements())
-        asyncio.create_task(self.recommend_random_shop())
+    def load_database(self):
+        if os.path.exists(self.db_file):
+            try:
+                with open(self.db_file, "r") as f:
+                    return json.load(f)
+            except: pass
+        return {"bot_position": None, "muted_users": {}, "frozen_players": {}, "user_warnings": {}}
 
-    # دالة رقص الـ Floss التلقائي اللانهائي
-    async def keep_bot_dancing_floss(self):
+    def save_database(self):
+        try:
+            with open(self.db_file, "w") as f:
+                json.dump(self.db, f)
+        except Exception as e:
+            print(f"Error saving database: {e}")
+
+    async def on_start(self, session_metadata: SessionMetadata) -> None:
+        print(f"⚡ بوت الذاكرة الشاملة جاهز! المالك: {self.OWNER_USERNAME}")
+        self.bot_user_id = session_metadata.user_id 
+        
+        # انتظار أمني كافي لمنع الـ Multilogin واستقرار الجلسة الجديدة
+        await asyncio.sleep(15.0)
+        
+        try:
+            initial_users = await self.highrise.get_room_users()
+            for u, pos in initial_users.content:
+                self.room_users[u.id] = u
+            self.is_ready_to_dance = True 
+            print("✅ تم دخول الغرفة بنجاح وتفعيل البوت.")
+        except Exception as e:
+            print(f"Error packing users: {e}")
+            self.is_ready_to_dance = True
+        
+        # استرجاع موقع البوت الدائم
+        if self.db.get("bot_position"):
+            bp = self.db["bot_position"]
+            try:
+                await self.highrise.teleport(self.bot_user_id, Position(bp["x"], bp["y"], bp["z"], bp["facing"]))
+            except: pass
+
+        asyncio.create_task(self.keep_bot_dancing_nonstop())
+        asyncio.create_task(self.send_trade_announcements())
+
+    async def on_user_move(self, user: User, destination: Position) -> None:
+        try:
+            uid_str = str(user.id)
+            if uid_str in self.db["frozen_players"]:
+                if time.time() > self.db["frozen_players"][uid_str]["expire_time"]:
+                    del self.db["frozen_players"][uid_str]
+                    if uid_str in self.db["muted_users"]: del self.db["muted_users"][uid_str]
+                    self.save_database()
+                    await self.highrise.chat(f"🕊️ انتهت العقوبة، تم فك تجميد وكتم @{user.username} تلقائياً.")
+                    return
+                
+                fp = self.db["frozen_players"][uid_str]
+                await self.highrise.teleport(user.id, Position(fp["x"], fp["y"], fp["z"], fp["facing"]))
+                return
+
+            if user.username.lower() == self.OWNER_USERNAME.lower():
+                if isinstance(destination, Position):
+                    if 0.0 <= destination.x <= 1.5 and 0.0 <= destination.z <= 1.5:
+                        await self.highrise.teleport(user.id, self.locations["1"])
+                        await self.highrise.send_whisper(user.id, "🚀 تم سحبك تلقائياً للمنصة العلوية!")
+        except Exception as e:
+            print(f"Error in move system: {e}")
+
+    async def on_whisper(self, user: User, message: str) -> None:
+        username_lower = user.username.lower()
+        is_mod = (username_lower in [m.lower() for m in self.moderators]) or (username_lower == self.OWNER_USERNAME.lower())
+        if not is_mod: return
+        
+        msg = message.strip().lower()
+        if msg in self.locations:
+            await self.highrise.teleport(user.id, self.locations[msg])
+            return
+
+    async def keep_bot_dancing_nonstop(self):
+        await asyncio.sleep(5.0)
         while True:
             try:
-                # إرسال رقصة الفلوس لنفسه
-                await self.highrise.send_emote(self.floss_emote)
-                # الانتظار لمدة 9 ثوانٍ ثم تكرارها فوراً ليبقى يرقص دون انقطاع
-                await asyncio.sleep(9.0) 
-            except Exception as e:
-                print(f"خطأ مؤقت في رقصة البوت وتم تجاوزه: {e}")
-                await asyncio.sleep(2)
+                if self.is_ready_to_dance and self.bot_user_id:
+                    await self.highrise.send_emote(self.bot_constant_emote)
+                await asyncio.sleep(15.0)
+            except:
+                await asyncio.sleep(10.0)
 
     async def send_trade_announcements(self):
         while True:
             try:
-                await asyncio.sleep(50) 
-                if not self.is_frozen:
-                    await self.highrise.chat("🏪 الغرفة غرفتكم والمكان مكانكم! هنا يقدم كل اللاعبين متاجرهم وعروضهم مجاناً وبدون أي رسوم! اعرضوا سلعكم وفالكم التوفيق يا ملوك البزنس والبيع 🛍️✨")
-                    await asyncio.sleep(4.0)
-                    await self.highrise.chat("⚠️ ولكن احذر يا صديقي ويا صديقتي من النصب والاحتيال! لا تندفعوا وتأكدوا من المقايضة 100% قبل الضغط على زر القبول. التجارة شطارة والحرص واجب دائماً! 🤝❌")
-            except Exception as e:
-                print(f"حدث خطأ مؤقت في شات الإعلانات وتم تجاوزه: {e}")
-                await asyncio.sleep(5)
-
-    async def recommend_random_shop(self):
-        while True:
-            try:
-                await asyncio.sleep(120)
-                if self.room_users and not self.is_frozen:
-                    random_user = random.choice(list(self.room_users.values()))
-                    if random_user.username.lower() != self.OWNER_USERNAME.lower():
-                        await self.highrise.chat(f"✨ عيونكم هناااا يا تجار! 👀 تعالوا شوفوا متجر هذا الشخص المحظوظ والعشوائي لليوم: @{random_user.username} ✨ ادخلوا بروفايله وشوفوا عروضه الأسطورية! 🔥🛒")
-            except Exception as e:
-                print(f"حدث خطأ مؤقت في ترشيح المتجر وتم تجاوزه: {e}")
-                await asyncio.sleep(5)
+                await asyncio.sleep(85) 
+                if not self.is_frozen and self.bot_user_id:
+                    announcements = [
+                        "🏪 متجرك جاهز؟ اعرض عروضك وسلعك الأسطورية هنا مجاناً وفالك الملايين والربح يا ملك التجارة! 🛍️✨",
+                        "⚠️ انتبه يا ملك! تأكد من المقايضة وفحص العناصر 100% قبل الضغط على زر القبول لتجنب الخداع. الحرص واجب دائماً! 🤝❌"
+                    ]
+                    await self.highrise.chat(random.choice(announcements))
+            except:
+                await asyncio.sleep(10)
 
     async def on_user_join(self, user: User, position: Position) -> None:
         try:
-            self.total_joins += 1
-            self.room_users[user.id] = user
+            self.room_users[user.id] = user 
+            if user.id == self.bot_user_id: return
 
             if user.username.lower() == self.OWNER_USERNAME.lower():
-                await self.highrise.chat(f"👑 أهلاً وسهلاً بتاج راسنا ومالك الغرفة الغالي @{user.username} ! نورت بيتك ومطرحك يا كبير! ❤️✨")
+                await self.highrise.chat(f"👑 انحناء وترحيب حار لتاج راسنا ومالك السيرفر @{user.username} وصل يا ملوك الروم! ❤️✨")
+                await self.highrise.react("heart", user.id) 
                 return
 
             if user.username.lower() == self.TARGET_USER.lower():
-                await self.highrise.chat(f"🗼 أوه @{user.username} وصل! راعي برج إيفل اللي يلبس في رجله مقاس 40 😂🫵🏻 نورتنا يا وحش الملاعب!")
+                await self.highrise.chat(f"🗼 راعي برج إيفل ومقاس 40 وصل @{user.username} 😂🫵🏻 أرحب يا أسطورة النكتة!")
+                await self.highrise.react("wink", user.id) 
                 return
 
-            welcome_messages = [
-                f"👋 يا هلا وغلا بـ @{user.username} في أكبر سوق تجاري! نور الروم بوجودك ✨🛍️",
-                f"🔥 أرحبببب يا @{user.username}! جهز متجرك واعرض عروضك القوية معنا اليوم 🛒🌟",
-                f"💎 نورت غرفة النخبة للتجارة يا @{user.username}! نتمنى لك مقايضات ناجحة ومربحة 🤝⚡"
-            ]
-            await self.highrise.chat(random.choice(welcome_messages))
+            reactions = ["clap", "heart", "thumbs", "wink"]
+            chosen_reaction = random.choice(reactions)
+            await self.highrise.chat(f"👋 أرحب يا @{user.username} نورت سوق النخبة للتجارة والمقايضة! 🛒💎")
+            await self.highrise.react(chosen_reaction, user.id)
         except Exception as e:
-            print(f"Error join: {e}")
+            print(f"Error in user join flow: {e}")
 
     async def on_user_leave(self, user: User) -> None:
-        if user.id in self.room_users:
-            del self.room_users[user.id]
+        if user.id in self.room_users: del self.room_users[user.id]
 
     async def on_chat(self, user: User, message: str) -> None:
         msg = message.strip()
@@ -143,49 +189,74 @@ class HighriseEliteBot(BaseBot):
         is_owner = (username_lower == self.OWNER_USERNAME.lower())
         is_mod = (username_lower in [m.lower() for m in self.moderators]) or is_owner
 
-        if user.id in self.muted_users:
-            if asyncio.get_event_loop().time() < self.muted_users[user.id]:
-                return
-            else:
-                del self.muted_users[user.id]
+        if str(user.id) in self.db["muted_users"]:
+            if time.time() < self.db["muted_users"][str(user.id)]: 
+                return 
+            else: 
+                del self.db["muted_users"][str(user.id)]
+                self.save_database()
 
-        if self.is_frozen and not is_mod:
-            return
+        if self.is_frozen and not is_mod: return
 
         for word in self.banned_words:
             if word in command:
-                await self.highrise.kick_user(user.id)
-                return
+                if is_mod: return 
+                room_users_data = await self.highrise.get_room_users()
+                current_player_pos = Position(2,0,2)
+                for u, pos in room_users_data.content:
+                    if u.id == user.id: current_player_pos = pos; break
+
+                uid_str = str(user.id)
+                self.db["user_warnings"][uid_str] = self.db["user_warnings"].get(uid_str, 0) + 1
+                self.save_database()
+                
+                if self.db["user_warnings"][uid_str] == 1:
+                    await self.highrise.chat(f"⚠️ | إنذار أول للمخالف @{user.username} ! ممنوع السب في غرفتنا، المرة القادمة عقاب صارم! 🤬❌")
+                    await self.highrise.react("thumbs", user.id) 
+                    return
+                elif self.db["user_warnings"][uid_str] >= 2:
+                    expire_time = time.time() + (5 * 60)
+                    self.db["muted_users"][uid_str] = expire_time
+                    if isinstance(current_player_pos, Position):
+                        self.db["frozen_players"][uid_str] = {
+                            "x": current_player_pos.x, "y": current_player_pos.y, "z": current_player_pos.z, "facing": current_player_pos.facing,
+                            "expire_time": expire_time
+                        }
+                    self.save_database()
+                    await self.highrise.chat(f"🥶⛔ | تم قفل الحساب عقابياً! المخالف @{user.username} تكرر منه السب، النتيجة: كتم وتجميد دائم ومستمر لمدة 5 دقائق! 🤫💥")
+                    return
 
         try:
             if "بوت" in command:
-                await self.highrise.chat("لبيه! كيف يمكنني مساعدتك اليوم؟ 🔥")
-                return
-
-            if msg.startswith("وقت ") or msg.startswith("!time "):
-                parts = msg.split(" ")
-                if len(parts) > 1:
-                    country = parts[1].replace("@", "").lower()
-                    if country in self.timezone_mapping:
-                        self.commands_executed += 1
-                        tz = pytz.timezone(self.timezone_mapping[country])
-                        current_time = datetime.now(tz).strftime("%I:%M %p")
-                        await self.highrise.chat(f"⏰ | الساعة الآن في {parts[1]} هي: {current_time} بالضبط.")
+                await self.highrise.chat("لبيه وآمرني! البوت الأسطوري الحارس في خدمتك الحين 🔥😉")
                 return
 
             if is_mod:
-                if msg.startswith("طرد ") or command.startswith("kick "):
-                    target = msg.split(" ")[1].replace("@", "")
-                    t_user = await self.get_user_by_username(target)
-                    if t_user: await self.highrise.kick_user(t_user.id)
-                    return
-
-                elif msg.startswith("حظر ") or command.startswith("ban "):
+                if msg.startswith("تجميد ") or command.startswith("freeze "):
                     parts = msg.split(" ")
                     target = parts[1].replace("@", "")
-                    duration = int(parts[2]) * 60 if len(parts) > 2 and parts[2].isdigit() else 300
                     t_user = await self.get_user_by_username(target)
-                    if t_user: await self.highrise.ban_user(t_user.id, duration=duration)
+                    if t_user:
+                        if t_user.username.lower() in [m.lower() for m in self.moderators]:
+                            await self.highrise.chat("❌ لا يمكنك تجميد إداري!")
+                            return
+                        
+                        room_users_data = await self.highrise.get_room_users()
+                        current_player_pos = Position(2,0,2)
+                        for u, pos in room_users_data.content:
+                            if u.id == t_user.id: current_player_pos = pos; break
+
+                        uid_str = str(t_user.id)
+                        expire_time = time.time() + (5 * 60)
+                        
+                        self.db["muted_users"][uid_str] = expire_time
+                        if isinstance(current_player_pos, Position):
+                            self.db["frozen_players"][uid_str] = {
+                                "x": current_player_pos.x, "y": current_player_pos.y, "z": current_player_pos.z, "facing": current_player_pos.facing,
+                                "expire_time": expire_time
+                            }
+                        self.save_database()
+                        await self.highrise.chat(f"🥶🔒 | بأمر الإدارة، تم تجميد حركتك وكتم شاتك يا @{target} لمدة 5 دقائق كاملة!")
                     return
 
                 elif msg.startswith("كتم ") or command.startswith("mute "):
@@ -193,14 +264,45 @@ class HighriseEliteBot(BaseBot):
                     target = parts[1].replace("@", "")
                     minutes = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 5
                     t_user = await self.get_user_by_username(target)
-                    if t_user: self.muted_users[t_user.id] = asyncio.get_event_loop().time() + (minutes * 60)
+                    if t_user:
+                        if t_user.username.lower() in [m.lower() for m in self.moderators]:
+                            await self.highrise.chat("❌ لا يمكنك كتم إداري!")
+                            return
+                        self.db["muted_users"][str(t_user.id)] = time.time() + (minutes * 60)
+                        self.save_database()
+                        await self.highrise.chat(f"🤫 تم ربط لسان @{target} وكتم شاته بالكامل لمدة {minutes} دقائق.")
+                    return
+
+                elif msg.startswith("طرد ") or command.startswith("kick "):
+                    parts = msg.split(" ")
+                    target = parts[1].replace("@", "")
+                    t_user = await self.get_user_by_username(target)
+                    if t_user: 
+                        if t_user.username.lower() in [m.lower() for m in self.moderators]:
+                            await self.highrise.chat("❌ لا يمكنك طرد إداري!")
+                            return
+                        await self.highrise.kick_user(t_user.id)
+                        await self.highrise.chat(f"👞 تم طرد المشاغب @{target} خارج الروم!")
+                    return
+
+                elif msg.startswith("فك_تجميد ") or command.startswith("unfreeze "):
+                    parts = msg.split(" ")
+                    target = parts[1].replace("@", "")
+                    t_user = await self.get_user_by_username(target)
+                    if t_user:
+                        uid_str = str(t_user.id)
+                        if uid_str in self.db["frozen_players"]: del self.db["frozen_players"][uid_str]
+                        if uid_str in self.db["muted_users"]: del self.db["muted_users"][uid_str]
+                        if uid_str in self.db["user_warnings"]: self.db["user_warnings"][uid_str] = 0
+                        self.save_database()
+                        await self.highrise.chat(f"🕊️ تم العفو عن @{target} وفك تجميده وكتمه بنجاح.")
                     return
 
                 elif msg.startswith("اجلب ") or command.startswith("br "):
-                    target = msg.split(" ")[1].replace("@", "")
+                    parts = msg.split(" ")
+                    target = parts[1].replace("@", "")
                     room_users = await self.highrise.get_room_users()
-                    caller_pos = None
-                    t_user = None
+                    caller_pos = None; t_user = None
                     for u, pos in room_users.content:
                         if u.username.lower() == username_lower: caller_pos = pos
                         if u.username.lower() == target.lower(): t_user = u
@@ -208,50 +310,65 @@ class HighriseEliteBot(BaseBot):
                         await self.highrise.teleport(t_user.id, Position(caller_pos.x + 0.5, caller_pos.y, caller_pos.z, caller_pos.facing))
                     return
 
-                elif msg.startswith("تبديل ") or command.startswith("swap "):
+                elif msg.startswith("ارقص ") or command.startswith("dance "):
                     parts = msg.split(" ")
-                    u1_name = parts[1].replace("@", "")
-                    u2_name = parts[2].replace("@", "")
-                    room_users = await self.highrise.get_room_users()
-                    user1, user2, pos1, pos2 = None, None, None, None
-                    for u, pos in room_users.content:
-                        if u.username.lower() == u1_name.lower(): user1, pos1 = u, pos
-                        if u.username.lower() == u2_name.lower(): user2, pos2 = u, pos
-                    if user1 and user2 and pos1 and pos2:
-                        await self.highrise.teleport(user1.id, pos2)
-                        await self.highrise.teleport(user2.id, pos1)
+                    if len(parts) > 1:
+                        target = parts[1].replace("@", "")
+                        emote_id = parts[2] if len(parts) > 2 else "emote-dance-tiktok"
+                        t_user = await self.get_user_by_username(target)
+                        if t_user: 
+                            await self.highrise.send_emote(emote_id, t_user.id)
                     return
 
-                elif msg.startswith("رقصوا") or command.startswith("danceall"):
+                elif msg.startswith("قصف ") or command.startswith("roast "):
                     parts = msg.split(" ")
-                    emote_id = parts[1] if len(parts) > 1 else "emote-dance-tiktok"
-                    for u_id in self.room_users.keys(): await self.highrise.send_emote(emote_id, u_id)
+                    target = parts[1].replace("@", "")
+                    roasts = [
+                        f"يا @{target} شكلك نسيت تلبس هيبتك وأنت داخل الروم اليوم؟ 😂🫵🏻",
+                        f"تكفى يا @{target} صجيتنا، روح رتب متجرك المكسر بعدين تعال تفلسف علينا 🤫🛒"
+                    ]
+                    await self.highrise.chat(random.choice(roasts))
                     return
 
-                elif msg == "احفظ" or command == "savepos":
-                    room_users = await self.highrise.get_room_users()
-                    for u, pos in room_users.content:
-                        if u.username.lower() == username_lower: self.saved_position = pos
+                if command in ["تثبيت", "هنا", "قفل_مكاني"] and is_owner:
+                    room_users_data = await self.highrise.get_room_users()
+                    owner_pos = None
+                    for u, pos in room_users_data.content:
+                        if u.username.lower() == self.OWNER_USERNAME.lower(): owner_pos = pos; break
+                    
+                    if owner_pos and isinstance(owner_pos, Position):
+                        self.db["bot_position"] = {"x": owner_pos.x, "y": owner_pos.y, "z": owner_pos.z, "facing": owner_pos.facing}
+                        self.save_database()
+                        await self.highrise.teleport(self.bot_user_id, owner_pos)
+                        await self.highrise.chat("📍 تم التقاط وتثبيت هذا الموقع في الذاكرة الدائمة بنجاح! 🫡👑")
                     return
 
-                elif msg == "تجميد":
+                elif msg == "تجميد_الشات":
                     self.is_frozen = True
+                    await self.highrise.chat("❄️ تم تجميد شات الروم بالكامل!")
                     return
                 elif msg in ["فك", "تفعيل"]:
                     self.is_frozen = False
+                    await self.highrise.chat("🔥 تم فك تجميد الشات!")
                     return
 
             if command in ["الأوامر", "اوامر", "!help"]:
-                help_text = "📋 أوامر الإشراف: طرد، حظر، كتم، اجلب، تبديل، رقصوا، احفظ، تجميد/فك."
+                help_text = "📋 لوحة التحكم الشاملة بالمنشن:\n🔹 تجميد @username | كتم @username\n🔹 طرد @username | فك_تجميد @username\n🔹 اجلب @username | ارقص @username"
                 await self.highrise.chat(help_text)
 
         except Exception as e:
-            print(f"Error command: {e}")
+            print(f"Error command execution: {e}")
 
     async def get_user_by_username(self, username: str):
-        room_users = await self.highrise.get_room_users()
-        for u, pos in room_users.content:
+        for u in self.room_users.values():
             if u.username.lower() == username.lower(): return u
+        try:
+            room_users = await self.highrise.get_room_users()
+            for u, pos in room_users.content:
+                if u.username.lower() == username.lower():
+                    self.room_users[u.id] = u
+                    return u
+        except: pass
         return None
 
 # --- [ إعدادات التشغيل والربط ] ---
