@@ -8,10 +8,10 @@ from highrise import BaseBot, Position
 from highrise.models import User, SessionMetadata
 
 # ========================================================
-# 1. خادم ويب حقيقي ومتوافق مع نظام Asyncio لمنع إعادة التشغيل
+# 1. خادم الويب المتوافق تماماً مع نظام منافذ Render
 # ========================================================
 async def handle_ping(request):
-    return web.Response(text="Bot is perfectly alive!")
+    return web.Response(text="Bot Web Server is Active!")
 
 async def start_web_server():
     app = web.Application()
@@ -22,12 +22,12 @@ async def start_web_server():
     site = web.TCPSite(runner, '0.0.0.0', port)
     try:
         await site.start()
-        print(f"🌍 Asyncio Web Server Listening perfectly on port {port}")
+        print(f"🌍 Web Server successfully listening on port {port}")
     except Exception as e:
-        print(f"⚠️ Web Server Failed to bind: {e}")
+        print(f"⚠️ Web Server Port Bind Warning: {e}")
 
 # ========================================================
-# 2. فئة البوت الاحترافية بالألوان وإيموجيات اللعبة الحقيقية
+# 2. فئة البوت الاحترافية المزودة بمهلة اتصال ذكية
 # ========================================================
 class HighriseEliteBot(BaseBot):
     
@@ -67,18 +67,18 @@ class HighriseEliteBot(BaseBot):
             print(f"Error saving database: {e}")
 
     async def on_start(self, session_metadata: SessionMetadata) -> None:
-        print(f"⚡ بوت الأوامر الحقيقية جاهز! المالك: {self.OWNER_USERNAME}")
+        print(f"⚡ بوت الأوامر جاهز للربط الفوري! المالك: {self.OWNER_USERNAME}")
         self.bot_user_id = session_metadata.user_id 
         
-        await asyncio.sleep(2.0)
-        
+        # محاولة جلب المستخدمين بمهلة زمنية قصيرة لمنع تعليق البناء في Render
         try:
-            initial_users = await self.highrise.get_room_users()
-            for u, pos in initial_users.content:
-                self.room_users[u.id] = u
-            print("✅ تم ربط المستخدمين بنجاح البوت يعمل الآن.")
+            async with asyncio.timeout(3.0):
+                initial_users = await self.highrise.get_room_users()
+                for u, pos in initial_users.content:
+                    self.room_users[u.id] = u
+            print("✅ تم استدعاء بيانات الغرفة بنجاح.")
         except Exception as e:
-            print(f"Error packing users: {e}")
+            print(f"🔄 جاري الانتقال للتشغيل الحي وتخطي فحص البداية لتسريع الدخول: {e}")
         
         if self.db.get("bot_position"):
             bp = self.db["bot_position"]
@@ -362,7 +362,6 @@ async def run_bot():
     await main([definition])
 
 async def main_execution():
-    # تشغيل سيرفر الويب والبوت معاً لضمان عدم توقف الخدمة على Render
     await asyncio.gather(
         start_web_server(),
         run_bot()
